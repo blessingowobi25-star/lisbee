@@ -1,36 +1,85 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LisBee
 
-## Getting Started
+A premium gifting storefront for Nigeria, built around the **Workweek Box** — one delivery
+containing five individually packaged weekday moments, Monday to Friday.
 
-First, run the development server:
+Customers browse, add to cart, check out with bank transfer, and track their order. Companies
+submit corporate enquiries. Everything is manageable from a protected admin area.
+
+**Stack:** Next.js 16 (App Router, React 19, TypeScript, Tailwind 4) with a pluggable data
+layer — Supabase in production, a local file store for development.
+
+---
+
+## Quick start
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local     # optional: without it, the app runs on local data
+npm run dev                    # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+With no environment variables the app is fully functional using `.data/db.json` and writes
+emails to `.data/outbox` instead of sending them. That is intentional — it means you can
+develop, demo and test the entire flow before any account exists.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Command | What it does |
+|---------|--------------|
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm run start` | Serve the production build |
+| `npm run lint` | ESLint |
+| `npx tsc --noEmit` | Type check |
+| `npm run seed:content` | Regenerate the FAQ/policy migration from `lib/db/seed.ts` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Deploying
 
-## Learn More
+See **[docs/LAUNCH.md](docs/LAUNCH.md)** — the full runbook: Supabase setup, migrations,
+DNS for Mailgun, Vercel deploy, the pre-launch data checklist and a post-launch smoke test.
 
-To learn more about Next.js, take a look at the following resources:
+---
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Project layout
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```
+app/
+  (storefront)    /  /workweek  /shop  /products/[slug]  /occasions  /recipients
+  (content)       /about  /how-it-works  /faq  /contact  /build-your-own  /corporate
+  (policies)      /delivery  /refunds  /terms  /privacy-policy
+  (commerce)      /cart  /checkout  /checkout/payment-instructions
+  (accounts)      /sign-in  /account  /account/orders
+  (admin)         /admin/orders  /admin/products  /admin/enquiries  /admin/content
+  api/            orders, enquiries, track, auth/*, admin/*
+components/       design-system and storefront components (client where interactive)
+lib/
+  db/             local file store, Supabase adapter, seed data
+  auth/           signed-cookie sessions, Supabase OAuth client
+  email/          Mailgun delivery with a local outbox fallback
+  validation.ts   shared server-side input validation and rate limiting
+supabase/
+  migrations/     0001 schema · 0002 tables · 0003 RLS · 0004 seed · 0005 content
+scripts/
+  generate-content-sql.mjs   regenerates 0005 from the seed
+```
 
-## Deploy on Vercel
+## How the data layer works
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Every server module talks to `db()` (`lib/db/index.ts`). It returns the Supabase adapter when
+a URL **and** a service-role key are present, and the local file store otherwise. Pages and
+API routes never import a driver directly, so switching backends is a configuration change.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Prices are **always** re-read from the database at checkout. The browser only ever sends
+product slugs and quantities, so a tampered price cannot reach an order.
+
+Delivery fees stay `null` until a real fee is configured. Checkout and the confirmation screen
+say fees are "confirmed before dispatch" rather than inventing a number.
+
+## Development notes
+
+- Local data lives in `.data/` (gitignored): `db.json`, `outbox/`, `auth-secret`.
+- Delete `.data/db.json` to reset to the seed: three Workweek tiers, taxonomies, delivery
+  zones, FAQs and policy copy.
+- Analytics events post to `/api/track` and are appended to `.data/analytics.jsonl`. No
+  cookies, no cross-site tracking, no personal data.
+- Only the three confirmed Workweek tiers are seeded. Empty collections show honest
+  "Coming soon" states instead of fabricated products.
