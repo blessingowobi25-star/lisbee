@@ -9,6 +9,9 @@
     "lint": "eslint",
     "seed:content": "node scripts/generate-content-sql.mjs"
   },
+  "engines": {
+    "node": ">=20.9.0"
+  },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
