@@ -55,12 +55,17 @@ export async function sendEmail(opts: {
     provider = "mailgun";
     try {
       const endpoint = `https://api.mailgun.net/v3/${domain}/messages`;
-      const body = new URLSearchParams({
-        from: `${settings.from_name} <${settings.from_email || `orders@${domain}`}>`,
-        to,
-        subject,
-        html,
-      });
+
+      // Mailgun rejects any "from" address that is not on the sending domain.
+      // Falling back automatically avoids a silent failure where every email
+      // is quietly rejected because the configured sender lives elsewhere.
+      const configured = (settings.from_email || "").toLowerCase();
+      const onSendingDomain = configured.endsWith(`@${domain.toLowerCase()}`);
+      const from = onSendingDomain
+        ? `${settings.from_name} <${settings.from_email}>`
+        : `${settings.from_name} <orders@${domain}>`;
+
+      const body = new URLSearchParams({ from, to, subject, html });
       const res = await fetch(endpoint, {
         method: "POST",
         headers: {
@@ -69,9 +74,21 @@ export async function sendEmail(opts: {
         },
         body,
       });
-      status = res.ok ? "sent" : "failed";
-    } catch {
+
+      if (res.ok) {
+        status = "sent";
+      } else {
+        status = "failed";
+        // Keep the reason. Without this a misconfigured sender looks identical
+        // to a working one until a customer complains they got nothing.
+        const detail = await res.text().catch(() => "");
+        console.error(
+          `[email] Mailgun rejected "${template}" to ${to} (HTTP ${res.status}): ${detail.slice(0, 400)}`,
+        );
+      }
+    } catch (error) {
       status = "failed";
+      console.error(`[email] Mailgun request failed for "${template}":`, error);
     }
   }
 
