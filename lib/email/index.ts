@@ -118,15 +118,25 @@ export function baseUrlFrom(headers: Headers): string {
   return "http://localhost:3000";
 }
 
-/** Fire-and-forget: never lets an email problem block a request. */
-function safe(promiseFactory: () => Promise<unknown>): void {
-  promiseFactory().catch((error) => {
-    console.error("[email]", error);
-  });
+/**
+ * Runs an email task and swallows failures, but RETURNS the promise.
+ *
+ * Callers must await this. A "fire and forget" send is fine on a long-running
+ * server, but on serverless hosting the function is frozen the moment the HTTP
+ * response is returned, so an in-flight email never completes and the customer
+ * silently receives nothing.
+ */
+function safe(promiseFactory: () => Promise<unknown>): Promise<void> {
+  return promiseFactory().then(
+    () => undefined,
+    (error) => {
+      console.error("[email]", error);
+    },
+  );
 }
 
-export function sendOrderConfirmation(order: Order, baseUrl: string): void {
-  safe(async () => {
+export function sendOrderConfirmation(order: Order, baseUrl: string): Promise<void> {
+  return safe(async () => {
     const settings = await getSettings();
     const items = await db().listOrderItems(order.id);
     const { subject, html } = orderConfirmationEmail(order, items, settings, baseUrl);
@@ -136,8 +146,8 @@ export function sendOrderConfirmation(order: Order, baseUrl: string): void {
   });
 }
 
-export function sendPaymentReceived(order: Order, baseUrl: string): void {
-  safe(async () => {
+export function sendPaymentReceived(order: Order, baseUrl: string): Promise<void> {
+  return safe(async () => {
     const settings = await getSettings();
     const { subject, html } = paymentReceivedEmail(order, settings, baseUrl);
     await sendEmail({ to: order.customer_email, subject, html, template: "payment-received" });
@@ -152,26 +162,33 @@ const STATUS_TEMPLATE: Partial<Record<OrderStatus, "preparing" | "ready" | "disp
   delivered: "delivered",
 };
 
-export function sendOrderStatusUpdate(order: Order, status: OrderStatus, baseUrl: string): void {
+export function sendOrderStatusUpdate(
+  order: Order,
+  status: OrderStatus,
+  baseUrl: string,
+): Promise<void> {
   const key = STATUS_TEMPLATE[status];
-  if (!key) return;
-  safe(async () => {
+  if (!key) return Promise.resolve();
+  return safe(async () => {
     const settings = await getSettings();
     const { subject, html } = orderStatusEmail(order, key, settings, baseUrl);
     await sendEmail({ to: order.customer_email, subject, html, template: `order-${key}` });
   });
 }
 
-export function sendPaymentReminder(order: Order, baseUrl: string): void {
-  safe(async () => {
+export function sendPaymentReminder(order: Order, baseUrl: string): Promise<void> {
+  return safe(async () => {
     const settings = await getSettings();
     const { subject, html } = paymentReminderEmail(order, settings, baseUrl);
     await sendEmail({ to: order.customer_email, subject, html, template: "payment-reminder" });
   });
 }
 
-export function notifyAdminOfEnquiry(enquiry: CorporateEnquiry, baseUrl: string): void {
-  safe(async () => {
+export function notifyAdminOfEnquiry(
+  enquiry: CorporateEnquiry,
+  baseUrl: string,
+): Promise<void> {
+  return safe(async () => {
     const settings = await getSettings();
     const { subject, html } = adminEnquiryEmail(enquiry, settings, baseUrl);
     await sendEmail({ to: settings.email, subject, html, template: "admin-corporate-enquiry" });

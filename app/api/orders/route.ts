@@ -235,7 +235,9 @@ export async function POST(request: Request): Promise<Response> {
     /* cookies unavailable — the order is still saved */
   }
 
-  sendOrderConfirmation(order, baseUrlFrom(request.headers));
+  // Awaited on purpose: see the note in lib/email/index.ts. On serverless
+  // hosting an un-awaited send would be cancelled when this function returns.
+  await sendOrderConfirmation(order, baseUrlFrom(request.headers));
 
   return Response.json(
     {

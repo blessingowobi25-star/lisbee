@@ -70,7 +70,7 @@ export async function POST(request: Request): Promise<Response> {
   };
 
   await db().createEnquiry(enquiry);
-  notifyAdminOfEnquiry(enquiry, baseUrlFrom(request.headers));
+  await notifyAdminOfEnquiry(enquiry, baseUrlFrom(request.headers));
 
   return Response.json({ ok: true, id: enquiry.id }, { status: 201 });
 }

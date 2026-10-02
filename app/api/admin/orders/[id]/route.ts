@@ -82,13 +82,13 @@ export async function PATCH(
 
   const base = baseUrlFrom(request.headers);
   if (updated.payment_status === "paid" && !wasPaid) {
-    sendPaymentReceived(updated, base);
+    await sendPaymentReceived(updated, base);
   } else if (
     patch.order_status &&
     patch.order_status !== previousStatus &&
     (patch.order_status as OrderStatus) !== "cancelled"
   ) {
-    sendOrderStatusUpdate(updated, patch.order_status as OrderStatus, base);
+    await sendOrderStatusUpdate(updated, patch.order_status as OrderStatus, base);
   }
 
   return Response.json({ ok: true, order: updated });
