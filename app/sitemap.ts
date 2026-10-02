@@ -3,7 +3,9 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-const BASE = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+// A trailing slash in the configured URL would produce double slashes in every
+// generated link, so normalise it once here.
+const BASE = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/+$/, "");
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [products, occasions, recipients] = await Promise.all([
