@@ -86,6 +86,12 @@ export default async function AdminOrderDetail({ params }: { params: Promise<{ i
                   {order.recipient.delivery_address}
                   <br />
                   {order.recipient.city}
+                  {order.recipient.delivery_area && (
+                    <>
+                      <br />
+                      <span className="text-xs">Area: {order.recipient.delivery_area}</span>
+                    </>
+                  )}
                   {order.recipient.delivery_instructions && (
                     <>
                       <br />

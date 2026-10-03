@@ -7,9 +7,11 @@ import Image from "next/image";
 import { useCart } from "@/components/cart-context";
 import { track } from "@/lib/analytics";
 import { formatNaira, whatsappLink } from "@/lib/format";
+import type { DeliveryZone } from "@/lib/types";
 
 interface Props {
   deliveryCities: string[];
+  zones: DeliveryZone[];
   whatsapp: string;
   user?: { name: string; email: string } | null;
 }
@@ -27,7 +29,7 @@ const OCCASIONS = [
   "Just because",
 ];
 
-export function CheckoutForm({ deliveryCities, whatsapp, user }: Props) {
+export function CheckoutForm({ deliveryCities, whatsapp, zones, user }: Props) {
   const { lines, ready, subtotal, clear } = useCart();
   const router = useRouter();
 
@@ -39,6 +41,14 @@ export function CheckoutForm({ deliveryCities, whatsapp, user }: Props) {
   const [recipientPhone, setRecipientPhone] = useState("");
   const [address, setAddress] = useState("");
   const [city, setCity] = useState(deliveryCities[0] ?? "Abuja");
+  const [area, setArea] = useState("");
+
+  // Only ask for an area when the chosen city actually has more than one zone.
+  const cityZones = zones.filter(
+    (z) => z.active && z.city.toLowerCase() === city.toLowerCase(),
+  );
+  const areaFee =
+    cityZones.find((z) => z.zone_name.toLowerCase() === area.toLowerCase())?.fee ?? null;
   const [instructions, setInstructions] = useState("");
   const [occasion, setOccasion] = useState("");
   const [giftMessage, setGiftMessage] = useState("");
@@ -82,6 +92,7 @@ export function CheckoutForm({ deliveryCities, whatsapp, user }: Props) {
         phone: sameAsRecipient ? senderPhone : recipientPhone,
         delivery_address: address,
         city,
+        delivery_area: cityZones.length > 1 ? area : "",
         delivery_instructions: instructions,
       },
       occasion,
@@ -243,6 +254,30 @@ export function CheckoutForm({ deliveryCities, whatsapp, user }: Props) {
                 onChange={(e) => setDeliveryDate(e.target.value)}
               />
             </label>
+            {cityZones.length > 1 && (
+              <label className="block sm:col-span-2">
+                <span className="field-label">
+                  Which part of {city}? <span className="text-honey-deep">*</span>
+                </span>
+                <select
+                  required
+                  className="field"
+                  value={area}
+                  onChange={(e) => setArea(e.target.value)}
+                >
+                  <option value="">Choose your area</option>
+                  {cityZones.map((z) => (
+                    <option key={z.id} value={z.zone_name}>
+                      {z.zone_name}
+                      {z.fee === null ? " — fee confirmed before dispatch" : ` — ${formatNaira(z.fee)}`}
+                    </option>
+                  ))}
+                </select>
+                <span className="mt-1.5 block text-xs text-muted">
+                  Delivery fees differ by area, so we ask before you pay.
+                </span>
+              </label>
+            )}
             <label className="block sm:col-span-2">
               <span className="field-label">Delivery notes (optional)</span>
               <input
@@ -320,8 +355,20 @@ export function CheckoutForm({ deliveryCities, whatsapp, user }: Props) {
           </div>
           <div className="flex justify-between">
             <dt className="text-muted">Delivery</dt>
-            <dd className="text-right text-xs text-muted">Confirmed before dispatch</dd>
+            <dd className="text-right text-xs text-muted">
+              {area
+                ? `${area} — ${formatNaira(areaFee ?? 0)}`
+                : cityZones.length > 1
+                  ? `Choose your ${city} area`
+                  : "Confirmed before dispatch"}
+            </dd>
           </div>
+          {areaFee !== null && (
+            <div className="flex justify-between border-t border-line pt-2 text-base font-semibold">
+              <dt>Total</dt>
+              <dd>{formatNaira(subtotal + areaFee)}</dd>
+            </div>
+          )}
         </dl>
 
         {error && (

@@ -8,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
       // Account, checkout and admin areas are never indexed.
-      disallow: ["/admin", "/api", "/account", "/cart", "/checkout", "/sign-in"],
+      disallow: ["/admin", "/api", "/account", "/cart", "/checkout", "/sign-in", "/staff-signin"],
     },
     sitemap: `${BASE}/sitemap.xml`,
   };

@@ -13,7 +13,6 @@ interface Props {
 export function SignInForm({ googleEnabled, next, error }: Props) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [adminCode, setAdminCode] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "error">("idle");
   const [message, setMessage] = useState(error ?? "");
 
@@ -25,7 +24,7 @@ export function SignInForm({ googleEnabled, next, error }: Props) {
       const res = await fetch("/api/auth/email", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ name, email, next, admin_code: adminCode }),
+        body: JSON.stringify({ name, email, next }),
       });
       const data = (await res.json()) as { error?: string; redirect?: string };
       if (!res.ok) {
@@ -114,25 +113,6 @@ export function SignInForm({ googleEnabled, next, error }: Props) {
         </button>
       </form>
 
-      <details className="group mt-4">
-        <summary className="cursor-pointer list-none text-xs text-muted hover:text-espresso">
-          Staff sign-in{" "}
-          <span className="group-open:hidden">
-            (admin access code required)
-          </span>
-        </summary>
-        <label className="mt-3 block">
-          <span className="field-label">Staff access code</span>
-          <input
-            type="password"
-            className="field"
-            value={adminCode}
-            onChange={(e) => setAdminCode(e.target.value)}
-            autoComplete="off"
-          />
-        </label>
-      </details>
-
       <p className="mt-5 text-xs leading-relaxed text-muted">
         An account lets you see your order history and track deliveries. You can also check out as a
         guest —{" "}
@@ -140,6 +120,86 @@ export function SignInForm({ googleEnabled, next, error }: Props) {
           continue shopping
         </Link>{" "}
         without signing in.
+      </p>
+    </div>
+  );
+}
+
+/**
+ * Staff sign-in, deliberately kept off the customer page so the public site
+ * never advertises that an admin back door exists. Reached only by someone
+ * who already knows the address, and still gated by the access code.
+ */
+export function StaffSignInPanel({ error }: { error?: string }) {
+  const [email, setEmail] = useState("");
+  const [code, setCode] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending">("idle");
+  const [message, setMessage] = useState(error ?? "");
+
+  const submit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setStatus("sending");
+    setMessage("");
+    try {
+      const res = await fetch("/api/auth/email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: "Staff", email, admin_code: code, next: "/admin" }),
+      });
+      const data = (await res.json()) as { error?: string; redirect?: string };
+      if (!res.ok) {
+        setStatus("idle");
+        setMessage(data.error ?? "Sign-in failed.");
+        return;
+      }
+      window.location.href = data.redirect ?? "/admin";
+    } catch {
+      setStatus("idle");
+      setMessage("Network error — please try again.");
+    }
+  };
+
+  return (
+    <div className="rounded-3xl border border-line bg-white p-6 md:p-8">
+      <form onSubmit={submit} className="space-y-4">
+        <label className="block">
+          <span className="field-label">Staff email</span>
+          <input
+            required
+            type="email"
+            className="field"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username"
+          />
+        </label>
+        <label className="block">
+          <span className="field-label">Access code</span>
+          <input
+            required
+            type="password"
+            className="field"
+            value={code}
+            onChange={(e) => setCode(e.target.value)}
+            autoComplete="current-password"
+          />
+        </label>
+
+        {message && (
+          <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+            {message}
+          </p>
+        )}
+
+        <button type="submit" disabled={status === "sending"} className="btn btn-primary w-full">
+          {status === "sending" ? "Signing in…" : "Staff sign in"}
+        </button>
+      </form>
+
+      <p className="mt-5 text-xs text-muted">
+        <Link href="/sign-in" className="underline">
+          Customer sign in
+        </Link>
       </p>
     </div>
   );

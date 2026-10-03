@@ -102,6 +102,8 @@ export interface OrderRecipient {
   delivery_address: string;
   city: string;
   state: string;
+  /** Which delivery zone within the city, when a city has more than one. */
+  delivery_area?: string;
   delivery_instructions?: string;
 }
 

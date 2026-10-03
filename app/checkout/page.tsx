@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { CheckoutForm } from "@/components/checkout-form";
-import { getSettings } from "@/lib/db";
+import { db, getSettings } from "@/lib/db";
 import { getSessionUser } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
@@ -12,7 +12,11 @@ export const metadata: Metadata = {
 };
 
 export default async function CheckoutPage() {
-  const [settings, user] = await Promise.all([getSettings(), getSessionUser()]);
+  const [settings, user, zones] = await Promise.all([
+    getSettings(),
+    getSessionUser(),
+    db().listZones(),
+  ]);
 
   return (
     <section className="shell py-12 md:py-16">
@@ -29,6 +33,7 @@ export default async function CheckoutPage() {
       <CheckoutForm
         deliveryCities={settings.delivery_cities}
         whatsapp={settings.whatsapp_number}
+        zones={zones}
         user={user ? { name: user.name, email: user.email } : null}
       />
     </section>

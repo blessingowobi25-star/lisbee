@@ -167,6 +167,7 @@ export default async function PaymentInstructionsPage({
             {order.recipient.delivery_address}
             <br />
             {order.recipient.city}
+            {order.recipient.delivery_area && ` — ${order.recipient.delivery_area}`}
             <br />
             {order.recipient.phone}
           </p>

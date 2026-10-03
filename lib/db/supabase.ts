@@ -78,6 +78,7 @@ interface RecipientRow {
   delivery_address: string;
   city: string;
   state: string;
+  delivery_area: string | null;
   delivery_instructions: string | null;
 }
 
@@ -94,6 +95,7 @@ function mapOrder(row: OrderRow): Order {
           delivery_address: rec.delivery_address ?? "",
           city: rec.city ?? "",
           state: rec.state ?? "",
+          delivery_area: rec.delivery_area ?? undefined,
           delivery_instructions: rec.delivery_instructions ?? undefined,
         }
       : rest.recipient ?? {
@@ -265,15 +267,29 @@ export function supabaseStore() {
         .single();
       if (error) fail("createOrder", error);
       const orderId = (data as Order).id;
-      const { error: recErr } = await sb.from("recipients").insert({
+      const recipientRow = {
         order_id: orderId,
         name: recipient.name,
         phone: recipient.phone,
         delivery_address: recipient.delivery_address,
         city: recipient.city,
         state: recipient.state,
+        delivery_area: recipient.delivery_area ?? null,
         delivery_instructions: recipient.delivery_instructions ?? null,
-      });
+      };
+
+      // Code can reach production before its migration does. If the
+      // delivery_area column has not been added yet, retry without it rather
+      // than failing the customer's whole order.
+      let recErr = (await sb.from("recipients").insert(recipientRow)).error;
+      if (recErr && /delivery_area|column/i.test(recErr.message)) {
+        console.warn(
+          "[supabase] recipients.delivery_area is missing — run migration " +
+            "0006_delivery_areas.sql. Saving the order without the delivery area.",
+        );
+        const { delivery_area: _drop, ...withoutArea } = recipientRow;
+        recErr = (await sb.from("recipients").insert(withoutArea)).error;
+      }
       if (recErr) fail("createOrder recipient", recErr);
       if (items.length) {
         const { error: itemErr } = await sb

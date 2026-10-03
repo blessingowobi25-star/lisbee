@@ -65,6 +65,7 @@ function readRecipient(
         delivery_address: address,
         city,
         state: city,
+        delivery_area: clean(raw.delivery_area, 60) || undefined,
         delivery_instructions: cleanMultiline(raw.delivery_instructions, 300) || undefined,
       },
     };
@@ -89,6 +90,7 @@ function readRecipient(
       delivery_address: address,
       city,
       state: city,
+      delivery_area: clean(raw.delivery_area, 60) || undefined,
       delivery_instructions: cleanMultiline(raw.delivery_instructions, 300) || undefined,
     },
   };
@@ -173,10 +175,26 @@ export async function POST(request: Request): Promise<Response> {
   }
 
   // ---- delivery fee: only applied when a zone fee is actually configured ----
+  // A city may have several zones (Lagos Mainland / Island). The customer picks
+  // one; the fee comes from that zone. With a single zone nothing is asked.
   const zones = await db().listZones();
-  const zone = zones.find(
+  const cityZones = zones.filter(
     (z) => z.active && z.city.toLowerCase() === recipient.city.toLowerCase(),
   );
+  const wanted = (recipient.delivery_area ?? "").toLowerCase();
+  const zone =
+    cityZones.find((z) => z.zone_name.toLowerCase() === wanted) ??
+    (cityZones.length === 1 ? cityZones[0] : undefined);
+
+  if (cityZones.length > 1 && !zone) {
+    return jsonError(
+      `Please choose a delivery area for ${recipient.city}: ${cityZones
+        .map((z) => z.zone_name)
+        .join(" or ")}.`,
+      422,
+    );
+  }
+
   const deliveryFee = typeof zone?.fee === "number" ? zone.fee : null;
   const total = subtotal + (deliveryFee ?? 0);
 
