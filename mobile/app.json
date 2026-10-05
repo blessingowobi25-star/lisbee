@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "LisBee",
+    "slug": "lisbee",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "lisbee",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "backgroundColor": "#241109",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lisbee.app"
+    },
+    "android": {
+      "package": "com.lisbee.app"
+    }
+  }
+}

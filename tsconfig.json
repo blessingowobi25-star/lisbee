@@ -30,5 +30,8 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
-  "exclude": ["node_modules"]
+  // The Expo app in mobile/ is its own npm project with its own tsconfig and
+  // its own dependency versions. It must not be type-checked with the website's
+  // config, which resolves modules differently and lacks react-native types.
+  "exclude": ["node_modules", "mobile"]
 }

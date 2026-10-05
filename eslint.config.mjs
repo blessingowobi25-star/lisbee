@@ -28,6 +28,8 @@ const eslintConfig = defineConfig([
     "build/**",
     "next-env.d.ts",
     ".data/**",
+    // The Expo app has its own toolchain and is not part of the website build.
+    "mobile/**",
   ]),
 ]);
 

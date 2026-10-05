@@ -11,6 +11,7 @@ import type {
   Product,
   ProductFilter,
   SiteSettings,
+  StoredCartItem,
   Taxonomy,
   TaxonomyKind,
   User,
@@ -412,6 +413,55 @@ export function supabaseStore() {
         .upsert({ id: 1, data: next, updated_at: next.updated_at }, { onConflict: "id" });
       if (error) fail("updateSettings", error);
       return next;
+    },
+
+    // ---------------- cart ----------------
+    async listCartItems(ownerKey: string): Promise<StoredCartItem[]> {
+      const { data, error } = await client()
+        .from("cart_items")
+        .select("*")
+        .eq("owner_key", ownerKey)
+        .order("slug");
+      if (error) fail("listCartItems", error);
+      return (data as StoredCartItem[]) ?? [];
+    },
+    async getCartItem(ownerKey: string, slug: string): Promise<StoredCartItem | null> {
+      const { data, error } = await client()
+        .from("cart_items")
+        .select("*")
+        .eq("owner_key", ownerKey)
+        .eq("slug", slug)
+        .maybeSingle();
+      if (error) fail("getCartItem", error);
+      return (data as StoredCartItem) ?? null;
+    },
+    async upsertCartItem(
+      ownerKey: string,
+      slug: string,
+      quantity: number,
+    ): Promise<StoredCartItem> {
+      const { data, error } = await client()
+        .from("cart_items")
+        .upsert(
+          { owner_key: ownerKey, slug, quantity, updated_at: new Date().toISOString() },
+          { onConflict: "owner_key,slug" },
+        )
+        .select()
+        .single();
+      if (error) fail("upsertCartItem", error);
+      return data as StoredCartItem;
+    },
+    async removeCartItem(ownerKey: string, slug: string): Promise<void> {
+      const { error } = await client()
+        .from("cart_items")
+        .delete()
+        .eq("owner_key", ownerKey)
+        .eq("slug", slug);
+      if (error) fail("removeCartItem", error);
+    },
+    async clearCart(ownerKey: string): Promise<void> {
+      const { error } = await client().from("cart_items").delete().eq("owner_key", ownerKey);
+      if (error) fail("clearCart", error);
     },
 
     // ---------------- FAQs ----------------

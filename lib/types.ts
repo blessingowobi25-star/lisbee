@@ -225,10 +225,40 @@ export interface EmailLog {
   created_at: string;
 }
 
-/** Cart lives client-side; prices are always re-validated server-side. */
-export interface CartLine {
+/**
+ * A cart line as STORED on the server.
+ *
+ * The browser used to own the whole cart in localStorage, which made a shared
+ * cart across devices impossible. Only the slug and quantity are persisted:
+ * price, name and image are always re-read from the products table so a stale
+ * or tampered client can never dictate what is charged.
+ */
+export interface StoredCartItem {
+  id: string;
+  owner_key: string;
   slug: string;
   quantity: number;
+  updated_at: string;
+}
+
+/**
+ * A cart line resolved against the live catalogue, ready to send to any client.
+ * Prices come from the database, never from the request.
+ */
+export interface ResolvedCartLine {
+  slug: string;
+  name: string;
+  price: number;
+  image: string | null;
+  quantity: number;
+}
+
+/** Full cart response. `updated_at` is the newest line's timestamp. */
+export interface CartResponse {
+  items: ResolvedCartLine[];
+  count: number;
+  subtotal: number;
+  updated_at: string | null;
 }
 
 export interface ProductFilter {

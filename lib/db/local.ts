@@ -1,5 +1,6 @@
-import fs from "node:fs";
+﻿import fs from "node:fs";
 import path from "node:path";
+import crypto from "node:crypto";
 import { buildSeed, type DbShape } from "./seed";
 import type {
   CorporateEnquiry,
@@ -12,6 +13,7 @@ import type {
   Product,
   ProductFilter,
   SiteSettings,
+  StoredCartItem,
   Taxonomy,
   TaxonomyKind,
   User,
@@ -266,6 +268,51 @@ export const localStore = {
     };
     persist();
     return db.settings;
+  },
+
+  // ---------------- cart ----------------
+  async listCartItems(ownerKey: string): Promise<StoredCartItem[]> {
+    return load()
+      .cart_items.filter((c) => c.owner_key === ownerKey)
+      .sort((a, b) => a.slug.localeCompare(b.slug));
+  },
+  async getCartItem(ownerKey: string, slug: string): Promise<StoredCartItem | null> {
+    return load().cart_items.find((c) => c.owner_key === ownerKey && c.slug === slug) ?? null;
+  },
+  async upsertCartItem(
+    ownerKey: string,
+    slug: string,
+    quantity: number,
+  ): Promise<StoredCartItem> {
+    const db = load();
+    const row: StoredCartItem = {
+      id: crypto.randomUUID(),
+      owner_key: ownerKey,
+      slug,
+      quantity,
+      updated_at: new Date().toISOString(),
+    };
+    const idx = db.cart_items.findIndex((c) => c.owner_key === ownerKey && c.slug === slug);
+    if (idx >= 0) {
+      row.id = db.cart_items[idx].id;
+      db.cart_items[idx] = row;
+    } else {
+      db.cart_items.push(row);
+    }
+    persist();
+    return row;
+  },
+  async removeCartItem(ownerKey: string, slug: string): Promise<void> {
+    const db = load();
+    db.cart_items = db.cart_items.filter(
+      (c) => !(c.owner_key === ownerKey && c.slug === slug),
+    );
+    persist();
+  },
+  async clearCart(ownerKey: string): Promise<void> {
+    const db = load();
+    db.cart_items = db.cart_items.filter((c) => c.owner_key !== ownerKey);
+    persist();
   },
 
   // ---------------- FAQs ----------------

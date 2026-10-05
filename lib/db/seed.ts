@@ -8,6 +8,7 @@ import type {
   PageContent,
   Product,
   SiteSettings,
+  StoredCartItem,
   Taxonomy,
   User,
 } from "@/lib/types";
@@ -23,6 +24,7 @@ export interface DbShape {
   orders: Order[];
   order_items: OrderItem[];
   enquiries: CorporateEnquiry[];
+  cart_items: StoredCartItem[];
   delivery_zones: DeliveryZone[];
   faqs: Faq[];
   pages: PageContent[];
@@ -67,6 +69,7 @@ export function buildSeed(): DbShape {
     orders: [],
     order_items: [],
     enquiries: [],
+    cart_items: [],
     delivery_zones: delivery_zones.map((z) => ({ ...z })),
     faqs: faqs.map((f) => ({ ...f })),
     pages: pages.map((p) => ({ ...p })),

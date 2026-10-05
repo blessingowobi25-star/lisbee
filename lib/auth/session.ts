@@ -37,6 +37,59 @@ function sign(value: string): string {
 
 export type SessionPayload = { uid: string; exp: number };
 
+/**
+ * Builds the signed session value without setting a cookie.
+ *
+ * The website authenticates with an httpOnly cookie, which React Native cannot
+ * read or send. The mobile app instead asks for a bearer token built with the
+ * SAME secret and the SAME payload, so both clients resolve to one `users` row
+ * and therefore one account and one cart. The token is never accepted from a
+ * query string, which would leak it into logs and referrers.
+ */
+export function buildSessionToken(userId: string): { token: string; expiresAt: number } {
+  const expiresAt = Date.now() + 1000 * 60 * 60 * 24 * 30;
+  const payload: SessionPayload = { uid: userId, exp: expiresAt };
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  return { token: `${body}.${sign(body)}`, expiresAt };
+}
+
+/** Verifies a signed value produced by buildSessionToken. Shared by both checks below. */
+function readToken(token: string): SessionPayload | null {
+  const [body, sig] = token.split(".");
+  if (!body || !sig) return null;
+  const expected = sign(body);
+  if (sig.length !== expected.length) return null;
+  if (!crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(expected))) return null;
+  try {
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString()) as SessionPayload;
+    if (!payload?.uid || payload.exp < Date.now()) return null;
+    return payload;
+  } catch {
+    return null;
+  }
+}
+
+/** Accepts `Authorization: Bearer <token>` for native clients. */
+export async function getUserFromBearer(request: Request): Promise<User | null> {
+  const header = request.headers.get("authorization") ?? "";
+  if (!header.toLowerCase().startsWith("bearer ")) return null;
+  const payload = readToken(header.slice(7).trim());
+  if (!payload) return null;
+  try {
+    return await db().getUserById(payload.uid);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Resolves the user for an API route from EITHER a browser cookie or a bearer
+ * token, so one route serves the website and the mobile app.
+ */
+export async function getRequestUser(request: Request): Promise<User | null> {
+  return (await getUserFromBearer(request)) ?? (await getSessionUser());
+}
+
 export async function createSession(userId: string): Promise<void> {
   const payload: SessionPayload = { uid: userId, exp: Date.now() + 1000 * 60 * 60 * 24 * 30 };
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
